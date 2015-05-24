@@ -1,6 +1,6 @@
 (ns sudoku-cv.core)
 
-(import '[org.opencv.core Mat MatOfPoint2f Size CvType Core Scalar Point]
+(import '[org.opencv.core Mat MatOfPoint2f Size CvType Core Scalar Point Rect]
         '[org.opencv.highgui Highgui]
         '[org.opencv.imgproc Imgproc]
         '[java.util ArrayList])
@@ -82,11 +82,27 @@
       (Point. 0 (.height size))
       (Point. (.width size) (.height size))])))
 
-(defn warp [input src-corners dest-corners]
+(defn cell-size [img-size]
+  (Size. (/ (.width img-size) 9)
+         (/ (.height img-size) 9)))
+
+(defn cell-rects [source]
+  (let [rect-size (cell-size (.size source))
+        cell-width (int (.width rect-size))
+        cell-height (int (.height rect-size))]
+    (for [i (range 81)]
+      (Rect. (* (mod i 3) cell-width)
+             (* (/ i 3) cell-height)
+             cell-width
+             cell-height))))
+
+(defn warp [source src-corners dest-corners]
   (let [dest (Mat.)
         transformMat (Imgproc/getPerspectiveTransform src-corners dest-corners)]
-    (Imgproc/warpPerspective input dest transformMat (.size input))
+    (Imgproc/warpPerspective source dest transformMat (.size source))
     dest))
+
+
 
 (preprocess sudoku-src blurred)
 (Highgui/imwrite "resources/images/sudoku_normalized.png"
