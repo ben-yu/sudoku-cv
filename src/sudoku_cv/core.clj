@@ -20,6 +20,12 @@
   (Core/bitwise_not dest dest)
   (Imgproc/dilate dest dest kernel))
 
+(defn preprocess-cell [source dest]
+  (Imgproc/equalizeHist source dest)
+  (Imgproc/GaussianBlur source dest (Size. 11 11) 0 0)
+  (Imgproc/threshold dest dest 30 255 Imgproc/THRESH_BINARY)
+  (Core/bitwise_not dest dest))
+
 (defn fill-areas [source color]
   (let [mask (Mat. (+ (.height (.size source)) 2) (+ (.width (.size source)) 2) CvType/CV_8UC1 (Scalar. 0 0))]
     (key
@@ -36,6 +42,12 @@
   (let [contours (ArrayList.)]
     (Imgproc/findContours source contours (MatOfPoint2f.) Imgproc/RETR_TREE Imgproc/CHAIN_APPROX_SIMPLE)
     contours))
+
+(defn find-cell-contour [source]
+  (let [original (Mat.)
+        contours (find-contours source)]
+    (copyTo. source original)
+    (.submat original (Imgproc/boundingRect (max-area-curve contours)))))
 
 (defn max-area-curve [curves]
   (key
