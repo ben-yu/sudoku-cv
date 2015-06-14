@@ -1,6 +1,6 @@
 (ns sudoku-cv.neural-net
-  (require '[clojure.data.csv :as csv]
-         '[clojure.java.io :as io]))
+  (:require [clojure.data.csv :as csv]
+         [clojure.java.io :as io]))
 
 (import '[org.opencv.core Mat MatOfInt Size CvType Core Scalar Point Rect TermCriteria]
         '[org.opencv.ml CvANN_MLP CvANN_MLP_TrainParams]

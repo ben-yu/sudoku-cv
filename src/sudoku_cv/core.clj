@@ -1,6 +1,7 @@
 (ns sudoku-cv.core
-  (require '[clojure.data.csv :as csv]
-         '[clojure.java.io :as io]))
+  (:require [clojure.data.csv :as csv]
+            [clojure.java.io :as io]
+            [sudoku-cv.sudoku :as sudoku]))
 
 (import '[org.opencv.core Mat MatOfPoint2f Size CvType Core Scalar Point Rect]
         '[org.opencv.highgui Highgui]
@@ -36,20 +37,6 @@
   (Imgproc/adaptiveThreshold dest dest 255 Imgproc/ADAPTIVE_THRESH_MEAN_C Imgproc/THRESH_BINARY 5 2)
   (Core/bitwise_not dest dest)
   (Imgproc/dilate dest dest kernel))
-
-
-; (defn fill-areas [source color]
-;   "Fills regions, and returns region with largest area"
-;   (let [mask (Mat. (+ (.height (.size source)) 2) (+ (.width (.size source)) 2) CvType/CV_8UC1 (Scalar. 0 0))]
-;     (key
-;       (apply max-key val
-;              (into {}
-;                    (for [x (range 0 (.width (.size source)))
-;                          y (range 0 (.height (.size source)))]
-;                     (if (and
-;                           (.get source x y)
-;                           (> (aget (.get source x y) 0) 0.0))
-;                             [(Point. y x) (Imgproc/floodFill source mask (Point. x y) color)])))))))
 
 (defn find-contours
   "List of contours in an image"
@@ -102,7 +89,7 @@
   "Preprocess individual sudoku cells"
   [source dest]
   (Imgproc/equalizeHist source dest)
-  (Imgproc/threshold dest dest 80 255 Imgproc/THRESH_BINARY)
+  (Imgproc/threshold dest dest 30 255 Imgproc/THRESH_BINARY)
   (Core/bitwise_not dest dest))
 
 (defn find-cell-contour [cell]
@@ -127,19 +114,12 @@
 
 
 (defn resize [cell]
-  (let [net-input (Mat. 25 25 CvType/CV_32FC1)]
+  (let [result (Mat. 25 25 CvType/CV_32FC1)]
     (do
-      (preprocess-cell cell cell)
-      (.convertTo (find-cell-contour cell) net-input CvType/CV_32FC1)
-      (Imgproc/resize net-input net-input (Size. 25 25))
-      net-input)))
-
-
-(defn match-template [candidate template]
-  (let [result (Mat. 1 1 CvType/CV_32FC1)])
-  (do
-    (Imgproc/matchTemplate candidate template result Imgproc/TM_SQDIFF)
-    (.minVal (Core/minMaxLoc result))))
+      (preprocess-cell cell result)
+      (.convertTo (find-cell-contour result) result CvType/CV_32FC1)
+      (Imgproc/resize result result (Size. 25 25))
+      result)))
 
 
 (def templates (Mat. 9 1250 CvType/CV_32FC1))
@@ -154,11 +134,41 @@
 
 (def normalized-src (Highgui/imread "resources/images/sudoku_normalized.png" 0))
 
+(defn match-template [candidate template]
+  (let [result (Mat. 1 1 CvType/CV_32FC1)]
+    (do
+      (Imgproc/matchTemplate candidate template result Imgproc/TM_SQDIFF)
+      (.minVal (Core/minMaxLoc result)))))
+
+(defn digit-qualities
+  [cell]
+  (into {}
+    (for [digit (range 9)]
+      [(+ digit 1) (match-template cell (.reshape (.clone (.row templates digit)) 0 25))])))
+
+(defn digit
+  "Find the digit using template matching"
+  [cell]
+  (let [qualities (digit-qualities cell)]
+    (if (every? #(> % 1.5E7) (vals qualities))
+      0
+      (key(apply min-key val qualities)))))
+
+(defn solve [image]
+  (sudoku/solve
+    (partition 9
+      (for [rect (cell-rects image)]
+        (digit (resize (.submat normalized-src rect)))))))
+
 (defn -main
-  "This should be pretty simple."
+  "Solves a sudoku puzzle from a picture"
   []
   (do
     (preprocess sudoku-src blurred)
-    (Highgui/imwrite "resources/images/sudoku_normalized.png"
-      (warp sudoku-src (curves-corners (approx-polygon (max-area-curve (find-contours blurred))))
-        (size-corners (.size sudoku-src))))))
+    (solve
+      (warp sudoku-src
+            (curves-corners
+              (approx-polygon
+                (max-area-curve
+                  (find-contours blurred))))
+            (size-corners (.size sudoku-src))))))
