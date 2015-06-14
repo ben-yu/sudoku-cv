@@ -8,4 +8,5 @@
                  [opencv/opencv "2.4.11"]
                  [opencv/opencv-native "2.4.11"]]
   :dev-dependencies [[seesaw "1.4.2"]]
-  :injections [(clojure.lang.RT/loadLibrary org.opencv.core.Core/NATIVE_LIBRARY_NAME)])
+  :injections [(clojure.lang.RT/loadLibrary org.opencv.core.Core/NATIVE_LIBRARY_NAME)]
+  :main sudoku-cv.core)

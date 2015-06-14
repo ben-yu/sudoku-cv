@@ -54,6 +54,8 @@
 (load-dataset "resources/train.csv" training-set training-labels)
 (train neural-net training-set training-labels train-params)
 
+(.save neural-net "neural-net.yaml")
+
 (.predict neural-net (.row training-set 3) result)
 (aget (.get training-labels 3 0) 0)
 (aget (.get result 0 4) 0)
